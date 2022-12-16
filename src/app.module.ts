@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
-import { VmafDiffCommand } from './command/vmaf-diff.command';
+import { ConsoleModule } from 'nestjs-console';
+import { CompareModule } from './command/compare.module';
 
 @Module({
-  providers: [VmafDiffCommand],
+  imports: [ConsoleModule, CompareModule],
 })
 export class AppModule {}
