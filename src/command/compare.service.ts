@@ -1,17 +1,28 @@
 import { Command, Console } from 'nestjs-console';
-import { FFmpegService } from '../ffmpeg/ffmpeg.service';
-import { StreamService } from '../stream/stream.service';
+import {
+  FFmpegService,
+  VmafResult,
+  OriginalVideoData,
+} from '../ffmpeg/ffmpeg.service';
+import {
+  FFprobeService,
+  FFprobeShrinkedData,
+} from '../ffprobe/ffprobe.service';
+import { VmafLogComparisonService } from '../vmaf-log-comparison/vmaf-log-comparison.service';
+import fs from 'fs';
 
 type CompareCommandOptions = {
   original: string;
   distorted: string[];
+  count: number;
 };
 
 @Console()
-export class CompareService {
+export class CompareCommandService {
   public constructor(
     private readonly ffmpeg: FFmpegService,
-    private readonly streamService: StreamService,
+    private readonly ffprobe: FFprobeService,
+    private readonly vmafLogComparison: VmafLogComparisonService,
   ) {}
   @Command({
     command: 'compare',
@@ -24,6 +35,11 @@ export class CompareService {
         flags: '-d, --distorted <distorted...>',
         required: true,
       },
+      {
+        flags: '-c, --count <count>',
+        defaultValue: 3,
+        required: false,
+      },
     ],
   })
   async compare(options: CompareCommandOptions): Promise<void> {
@@ -34,12 +50,36 @@ export class CompareService {
       return;
     }
 
-    const promises: Promise<string>[] = [];
+    const ffprobeData: FFprobeShrinkedData = await this.ffprobe.getInfo(
+      options.original,
+    );
+
+    const original: OriginalVideoData = {
+      source: options.original,
+      width: ffprobeData.width,
+      height: ffprobeData.height,
+      fps: ffprobeData.fps,
+    };
+
+    const promises: Promise<VmafResult>[] = [];
     for (const distorted of options.distorted) {
-      promises.push(this.ffmpeg.vmaf(distorted, options.original));
+      promises.push(this.ffmpeg.vmaf(distorted, original));
     }
 
     const result = await Promise.all(promises);
-    console.log(result);
+
+    const maxDeltas = await this.vmafLogComparison.compareVmafLogs(
+      result,
+      options.count,
+    );
+    console.log(maxDeltas);
+
+    await this.ffmpeg.exportFrames(
+      result.map((item) => item.identifier),
+      maxDeltas.map((item) => item.frameNum),
+    );
+
+    // fs.writeFileSync('./vmaf.json', JSON.stringify(result, undefined, 2));
+    // console.log('Done');
   }
 }

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConsoleModule } from 'nestjs-console';
-import { CompareModule } from './command/compare.module';
+import { CompareCommandModule } from './command/compare.module';
 
 @Module({
-  imports: [ConsoleModule, CompareModule],
+  imports: [ConsoleModule, CompareCommandModule],
 })
 export class AppModule {}

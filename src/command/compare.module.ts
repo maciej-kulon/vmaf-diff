@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { StreamModule } from '../stream/stream.module';
-import { CompareService } from './compare.service';
+import { CompareCommandService } from './compare.service';
 import { FFmpegModule } from '../ffmpeg/ffmpeg.module';
+import { FFprobeModule } from '../ffprobe/ffprobe.module';
+import { VmafLogComparisonModule } from '../vmaf-log-comparison/vmaf-log-comparison.module';
 
 @Module({
-  imports: [StreamModule, FFmpegModule],
-  providers: [CompareService],
-  exports: [CompareService],
+  imports: [FFmpegModule, FFprobeModule, VmafLogComparisonModule],
+  providers: [CompareCommandService],
+  exports: [CompareCommandService],
 })
-export class CompareModule {}
+export class CompareCommandModule {}
