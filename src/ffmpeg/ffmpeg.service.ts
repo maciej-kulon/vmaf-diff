@@ -1,40 +1,46 @@
 import { Injectable } from '@nestjs/common';
 import FfmpegCommand from 'fluent-ffmpeg';
 import { ReadStream } from 'fs';
-import { StreamService } from '../stream/stream.service';
+import {
+  FFprobeService,
+  FFprobeShrinkedData,
+} from '../ffprobe/ffprobe.service';
 import { Duplex } from 'stream';
 
 @Injectable()
 export class FFmpegService {
-  public constructor(private readonly streamService: StreamService) {}
+  public constructor(private readonly ffprobeService: FFprobeService) {}
   public async vmaf(
     distorted: string,
-    original: ReadStream | Duplex | string,
+    original: Duplex | ReadStream | string,
   ): Promise<string> {
     return new Promise((resolve, reject) => {
-      // TODO: Inject FFProbeService and perform ffprobe to find out original video resolution.
-      try {
-        const { w, h } = { w: 1280, h: 720 };
-        const ffmpeg = FfmpegCommand();
-        ffmpeg.on('end', (data) => {
-          resolve(data);
+      this.ffprobeService
+        .getInfo(original)
+        .then((originalData) => {
+          const ffmpeg = FfmpegCommand({ stdoutLines: 0 });
+          console.log('Original video data: ', originalData);
+          ffmpeg.on('start', console.log);
+          ffmpeg.on('error', (error) => {
+            reject(error);
+          });
+          ffmpeg.on('end', (data) => {
+            resolve(data);
+          });
+
+          ffmpeg
+            .addInput(distorted)
+            .addInput(original)
+            .addOption(
+              '-filter_complex',
+              `[0:v]scale=${originalData.width}x${originalData.height}:flags=bicubic[main]; [main][1:v]libvmaf=psnr=1:phone_model=1:log_fmt=json:log_path=/dev/stdout`,
+            )
+            .format('null')
+            .save('-');
+        })
+        .catch((error) => {
+          reject(error);
         });
-
-        ffmpeg.on('start', console.log);
-        ffmpeg.on('progress', console.log);
-
-        ffmpeg
-          .addInput(distorted)
-          .addInput(original)
-          .addOption(
-            '-filter_complex',
-            `[0:v]scale=${w}x${h}:flags=bicubic[main]; [main][1:v]libvmaf=psnr=1:phone_model=1:log_fmt=json:log_path=/dev/stdout`,
-          )
-          .format('null')
-          .save('-');
-      } catch (error) {
-        reject(error);
-      }
     });
   }
 }

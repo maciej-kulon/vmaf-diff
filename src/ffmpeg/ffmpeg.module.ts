@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { StreamModule } from '../stream/stream.module';
+import { FFprobeModule } from '../ffprobe/ffprobe.module';
 import { FFmpegService } from './ffmpeg.service';
 
 @Module({
-  imports: [StreamModule],
+  imports: [FFprobeModule],
   providers: [FFmpegService],
   exports: [FFmpegService],
 })

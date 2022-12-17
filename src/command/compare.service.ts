@@ -27,16 +27,19 @@ export class CompareService {
     ],
   })
   async compare(options: CompareCommandOptions): Promise<void> {
-    // const originalStreamHandler = this.streamService.getStreamHandler(
-    //   options.original,
-    // );
-    // const originalStream = await originalStreamHandler.getStream(
-    //   options.original,
-    // );
-
-    for (const distorted of options.distorted) {
-      const result = await this.ffmpeg.vmaf(distorted, options.original);
-      console.log(result);
+    if (options.distorted.length < 2) {
+      console.error(
+        'You have to provide at least 2 distorted videos to compare.',
+      );
+      return;
     }
+
+    const promises: Promise<string>[] = [];
+    for (const distorted of options.distorted) {
+      promises.push(this.ffmpeg.vmaf(distorted, options.original));
+    }
+
+    const result = await Promise.all(promises);
+    console.log(result);
   }
 }
