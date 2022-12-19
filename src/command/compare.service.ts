@@ -74,12 +74,9 @@ export class CompareCommandService {
     );
     console.log(maxDeltas);
 
-    await this.ffmpeg.exportFrames(
+    await this.ffmpeg.exportFramesFromAllSources(
       result.map((item) => item.identifier),
-      maxDeltas.map((item) => item.frameNum),
+      maxDeltas.map((item) => item.frameNum)
     );
-
-    // fs.writeFileSync('./vmaf.json', JSON.stringify(result, undefined, 2));
-    // console.log('Done');
   }
 }

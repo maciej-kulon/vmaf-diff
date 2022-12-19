@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import FfmpegCommand from 'fluent-ffmpeg';
 import { ReadStream } from 'fs';
-import { FFprobeService } from '../ffprobe/ffprobe.service';
 import { Duplex } from 'stream';
+import path from 'path';
 
 export type VmafResult = {
   identifier: string;
@@ -73,40 +73,89 @@ export class FFmpegService {
     });
   }
 
-  public async exportFrames(
+  public async exportFramesFromAllSources(
     sources: string[],
     frames: number[],
   ): Promise<void> {
-    try {
-      for (const source of sources) {
-        await this.exportFramesFromSource(source, frames);
+    return new Promise((resolve, reject) => {
+      try {
+        const ffmpeg = FfmpegCommand();
+        ffmpeg.on('error', (error) => {
+          console.log(error);
+          reject(error);
+        });
+        ffmpeg.on('stderr', (data) => {
+          console.log(data);
+        });
+        ffmpeg.on('end', resolve);
+        ffmpeg.on('start', console.log);
+        // ffmpeg.on('progress', console.log);
+        ffmpeg.on('codecData', console.log);
+        for (const source of sources) {
+          ffmpeg.addInput(source);
+        }
+
+        const inputFilters: string[] = [];
+        for (let i = 0; i < sources.length; i++) {
+          for (const frame of frames) {
+            inputFilters.push(
+              `[${i}:v]select=eq(n\\,${frame}),setpts=1[${
+                path.parse(sources[i]).name
+              }_${frame}];`,
+            );
+          }
+        }
+
+        for (const frame of frames) {
+          let frameStreams = '';
+          for (const source of sources) {
+            const fStream = `[${path.parse(source).name}_${frame}]`;
+            frameStreams += fStream;
+          }
+          ffmpeg
+            .addOption(
+              '-filter_complex',
+              `${inputFilters.join(' ')} ${frameStreams}hstack=inputs=${
+                sources.length
+              }`,
+            )
+            .addOption(`./result_${frameStreams}_%03d.png`);
+        }
+        ffmpeg.format('null').addOutput(`-`).run();
+      } catch (error) {
+        console.error(error);
+        throw error;
       }
-    } catch (error) {
-      console.error(error);
-      throw error;
-    }
+    });
   }
 
-  private async exportFramesFromSource(
+  private async exportFramesFromSingleSource(
     source: string,
     frames: number[],
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const ffmpeg = FfmpegCommand();
+
       ffmpeg.on('end', resolve);
       ffmpeg.on('error', (error) => {
         console.log(error);
         reject(error);
       });
       ffmpeg.on('start', console.log);
+
       ffmpeg.addInput(source);
       for (const frame of frames) {
         ffmpeg
-          .addOptions('-vf', `"select=gte(n\\,${frame})"`)
-          .addOption('-vframes', '1')
-          .addOption(`${source}_${frame}_%03d.png`);
+          .addOptions(
+            '-vf',
+            `select=gte(n\\,${frame})[${path.parse(source).name}_${frame}]`,
+          )
+          .addOption('-vframes', '1');
+        //.addOption(`-`);
       }
-      ffmpeg.format('null').addOutput('-').run();
+      ffmpeg.format('null').addOutput(`-`).run();
     });
   }
 }
+
+// ffmpeg -i ./samples/distorted1.mp4 -i ./samples/distorted2.mp4 -y -an -filter_complex "[0]select=gte(n\,10)[distorted1_10]; [1]select=gte(n\,10)[distorted2_10]; [distorted1_10][distorted2_10]hstack=inputs=2 ./result_[distorted1_10][distorted2_10].png" -f null -
