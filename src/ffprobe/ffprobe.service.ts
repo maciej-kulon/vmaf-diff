@@ -1,13 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import FfmpegCommand, { FfprobeData } from 'fluent-ffmpeg';
 import { ReadStream } from 'fs';
+import { FFprobeShrinkedData } from '../types/types';
 import { Duplex } from 'stream';
-
-export type FFprobeShrinkedData = {
-  width: number;
-  height: number;
-  fps: string;
-};
 
 @Injectable()
 export class FFprobeService {

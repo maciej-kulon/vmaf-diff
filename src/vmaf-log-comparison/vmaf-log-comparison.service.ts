@@ -1,10 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { VmafResult } from '../ffmpeg/ffmpeg.service';
-
-export type FrameDeltaData = {
-  frameNum: number;
-  delta: number;
-};
+import { FrameDeltaData, VmafResult } from '../types/types';
 
 @Injectable()
 export class VmafLogComparisonService {

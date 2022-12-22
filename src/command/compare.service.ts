@@ -1,21 +1,13 @@
 import { Command, Console } from 'nestjs-console';
 import {
-  FFmpegService,
-  VmafResult,
-  OriginalVideoData,
-} from '../ffmpeg/ffmpeg.service';
-import {
-  FFprobeService,
+  CompareCommandOptions,
   FFprobeShrinkedData,
-} from '../ffprobe/ffprobe.service';
+  OriginalVideoData,
+  VmafResult,
+} from '../types/types';
+import { FFmpegService } from '../ffmpeg/ffmpeg.service';
+import { FFprobeService } from '../ffprobe/ffprobe.service';
 import { VmafLogComparisonService } from '../vmaf-log-comparison/vmaf-log-comparison.service';
-import fs from 'fs';
-
-type CompareCommandOptions = {
-  original: string;
-  distorted: string[];
-  count: number;
-};
 
 @Console()
 export class CompareCommandService {
@@ -61,12 +53,12 @@ export class CompareCommandService {
       fps: ffprobeData.fps,
     };
 
-    const promises: Promise<VmafResult>[] = [];
+    const commandDiffPromises: Promise<VmafResult>[] = [];
     for (const distorted of options.distorted) {
-      promises.push(this.ffmpeg.vmaf(distorted, original));
+      commandDiffPromises.push(this.ffmpeg.vmaf(distorted, original));
     }
 
-    const result = await Promise.all(promises);
+    const result = await Promise.all(commandDiffPromises);
 
     const maxDeltas = await this.vmafLogComparison.compareVmafLogs(
       result,
@@ -74,9 +66,14 @@ export class CompareCommandService {
     );
     console.log(maxDeltas);
 
-    await this.ffmpeg.exportFramesFromAllSources(
-      result.map((item) => item.identifier),
-      maxDeltas.map((item) => item.frameNum)
-    );
+    const sources = result.map((item) => item.identifier);
+
+    const exportFramesPromises = maxDeltas.map((item) => {
+      return this.ffmpeg.exportFramesComparison(sources, item.frameNum);
+    });
+
+    await Promise.all(exportFramesPromises);
+
+    console.log('Finished.');
   }
 }
