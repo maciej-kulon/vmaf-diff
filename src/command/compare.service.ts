@@ -42,9 +42,7 @@ export class CompareCommandService {
       return;
     }
 
-    const ffprobeData: FFprobeShrinkedData = await this.ffprobe.getInfo(
-      options.original,
-    );
+    const ffprobeData = await this.ffprobe.getInfo(options.original);
 
     const original: OriginalVideoData = {
       source: options.original,
@@ -58,22 +56,18 @@ export class CompareCommandService {
       commandDiffPromises.push(this.ffmpeg.vmaf(distorted, original));
     }
 
-    const result = await Promise.all(commandDiffPromises);
+    const vmafResults = await Promise.all(commandDiffPromises);
 
     const maxDeltas = await this.vmafLogComparison.compareVmafLogs(
-      result,
+      vmafResults,
       options.count,
     );
     console.log(maxDeltas);
 
-    const sources = result.map((item) => item.identifier);
-
     const exportFramesPromises = maxDeltas.map((item) => {
-      return this.ffmpeg.exportFramesComparison(sources, item.frameNum);
+      return this.ffmpeg.exportFramesComparison(vmafResults, item.frameNum);
     });
 
     await Promise.all(exportFramesPromises);
-
-    console.log('Finished.');
   }
 }

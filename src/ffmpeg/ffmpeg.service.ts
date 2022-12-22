@@ -13,7 +13,7 @@ export class FFmpegService {
       try {
         const ffmpeg = FfmpegCommand({ stdoutLines: 0 });
 
-        this.subscribeFFmpegEvents(
+        this.subscribeToFfmpegEvents(
           ffmpeg,
           (data: string) => {
             resolve({ identifier: distorted, log: JSON.parse(data) });
@@ -37,31 +37,31 @@ export class FFmpegService {
   }
 
   public async exportFramesComparison(
-    sources: string[],
+    vmafResults: VmafResult[],
     frameNumber: number,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         const ffmpeg = FfmpegCommand();
 
-        this.subscribeFFmpegEvents(ffmpeg, resolve, reject);
+        this.subscribeToFfmpegEvents(ffmpeg, resolve, reject);
 
-        for (const source of sources) {
-          ffmpeg.addInput(source);
+        for (const vmafResult of vmafResults) {
+          ffmpeg.addInput(vmafResult.identifier);
         }
 
         const exportFrameFilters = this.createExportFrameFilters(
-          sources,
+          vmafResults,
           frameNumber,
         );
 
-        const frameStreams = this.prepareFrameStreamsString(sources);
+        const frameStreams = this.prepareFrameStreamsString(vmafResults);
 
         ffmpeg
           .addOption(
             '-filter_complex',
             `${exportFrameFilters.join(' ')} ${frameStreams}hstack=inputs=${
-              sources.length
+              vmafResults.length
             }[result]`,
           )
           .addOption('-map', `[result]`)
@@ -74,28 +74,37 @@ export class FFmpegService {
     });
   }
 
-  private prepareFrameStreamsString(sources: string[]) {
+  private prepareFrameStreamsString(vmafResults: VmafResult[]) {
     let frameStreams = '';
-    for (const source of sources) {
-      const fStream = `[${path.parse(source).name}]`;
+    for (const vmafResult of vmafResults) {
+      const fStream = `[${path.parse(vmafResult.identifier).name}]`;
       frameStreams += fStream;
     }
     return frameStreams;
   }
 
-  private createExportFrameFilters(sources: string[], frameNumber: number) {
+  private createExportFrameFilters(
+    vmafResults: VmafResult[],
+    frameNumber: number,
+  ) {
     const exportFrameFilters: string[] = [];
-    for (let i = 0; i < sources.length; i++) {
+    for (let i = 0; i < vmafResults.length; i++) {
+      const vmafScoreText = `VMAF score=${
+        vmafResults[i].log.frames.find((s) => s.frameNum == frameNumber).metrics
+          .vmaf
+      }`;
       exportFrameFilters.push(
-        `[${i}:v]select=eq(n\\,${frameNumber}),setpts=1[${
-          path.parse(sources[i]).name
+        `[${i}:v]select=eq(n\\,${frameNumber}),setpts=1,drawtext=text=File name=${
+          vmafResults[i].identifier
+        }\n${vmafScoreText}\nFrame number=${frameNumber}[${
+          path.parse(vmafResults[i].identifier).name
         }];`,
       );
     }
     return exportFrameFilters;
   }
 
-  private subscribeFFmpegEvents(
+  private subscribeToFfmpegEvents(
     ffmpeg: FfmpegCommand.FfmpegCommand,
     callback: any,
     errorHandler: any,
