@@ -65,7 +65,12 @@ export class CompareCommandService {
     console.log(maxDeltas);
 
     const exportFramesPromises = maxDeltas.map((item) => {
-      return this.ffmpeg.exportFramesComparison(vmafResults, item.frameNum);
+      return this.ffmpeg.exportFramesComparison(
+        vmafResults,
+        item.frameNum,
+        original.width,
+        original.height,
+      );
     });
 
     await Promise.all(exportFramesPromises);

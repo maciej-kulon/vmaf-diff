@@ -26,7 +26,7 @@ export class FFmpegService {
           .addInput(original.source)
           .addOption(
             '-filter_complex',
-            `[0:v]scale=${original.width}x${original.height}:flags=bicubic[main]; [main][1:v]libvmaf=psnr=1:phone_model=1:log_fmt=json:log_path=/dev/stdout`,
+            `[0:v]scale=${original.width}:${original.height}[dist]; [1:v]scale=${original.width}:${original.height}[original]; [dist][original]libvmaf=psnr=1:phone_model=1:log_fmt=json:log_path=/dev/stdout`,
           )
           .format('null')
           .save('-');
@@ -39,6 +39,8 @@ export class FFmpegService {
   public async exportFramesComparison(
     vmafResults: VmafResult[],
     frameNumber: number,
+    frameWidth: number,
+    frameHeight: number,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
@@ -53,6 +55,8 @@ export class FFmpegService {
         const exportFrameFilters = this.createExportFrameFilters(
           vmafResults,
           frameNumber,
+          frameHeight,
+          frameWidth,
         );
 
         const frameStreams = this.prepareFrameStreamsString(vmafResults);
@@ -74,7 +78,7 @@ export class FFmpegService {
     });
   }
 
-  private prepareFrameStreamsString(vmafResults: VmafResult[]) {
+  private prepareFrameStreamsString(vmafResults: VmafResult[]): string {
     let frameStreams = '';
     for (const vmafResult of vmafResults) {
       const fStream = `[${path.parse(vmafResult.identifier).name}]`;
@@ -86,17 +90,22 @@ export class FFmpegService {
   private createExportFrameFilters(
     vmafResults: VmafResult[],
     frameNumber: number,
-  ) {
+    frameHeight: number,
+    frameWidth: number,
+  ): string[] {
     const exportFrameFilters: string[] = [];
     for (let i = 0; i < vmafResults.length; i++) {
       const vmafScoreText = `VMAF score=${
         vmafResults[i].log.frames.find((s) => s.frameNum == frameNumber).metrics
           .vmaf
       }`;
+      const lowerResolutionValue: number =
+        frameHeight < frameWidth ? frameHeight : frameWidth;
+      const fontSize = Math.round(lowerResolutionValue / 20);
       exportFrameFilters.push(
         `[${i}:v]select=eq(n\\,${frameNumber}),setpts=1,drawtext=text=File name=${
           vmafResults[i].identifier
-        }\n${vmafScoreText}\nFrame number=${frameNumber}[${
+        }\n${vmafScoreText}\nFrame number=${frameNumber}:bordercolor=White:borderw=1:fontsize=${fontSize}[${
           path.parse(vmafResults[i].identifier).name
         }];`,
       );
@@ -108,12 +117,16 @@ export class FFmpegService {
     ffmpeg: FfmpegCommand.FfmpegCommand,
     callback: any,
     errorHandler: any,
-  ) {
+  ): void {
     ffmpeg.on('error', (error) => {
       console.log(error);
       errorHandler(error);
     });
+    ffmpeg.on('progress', ({ percent }) => {
+      console.log(`${Math.round(percent)}%`);
+    });
     ffmpeg.on('end', callback);
     ffmpeg.on('start', console.log);
+    ffmpeg.on('stderr', console.log);
   }
 }
