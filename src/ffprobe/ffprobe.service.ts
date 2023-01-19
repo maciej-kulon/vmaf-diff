@@ -13,7 +13,7 @@ export class FFprobeService {
       try {
         const ffmpeg = FfmpegCommand();
         ffmpeg.addInput(source).ffprobe((error, data: FfprobeData) => {
-          if (error) reject(error);
+          if (error) return reject(error);
           const vStream = data.streams.find(
             (stream) => stream.codec_type === 'video',
           );

@@ -31,3 +31,8 @@ ts-node ./src/console.ts compare -o originalVideo.mp4 -d distortedVideo1.mp4 dis
 ```bash
 [optional] -c, --count: Amount of frames to export. Default value is set to 3.
 ```
+
+## Example results
+
+![result1](exmaple-results/frame_340[video1][video2].png)
+![result1](exmaple-results/frame_366[video1][video2].png)

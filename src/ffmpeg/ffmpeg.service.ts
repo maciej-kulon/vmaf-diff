@@ -96,8 +96,10 @@ export class FFmpegService {
     const exportFrameFilters: string[] = [];
     for (let i = 0; i < vmafResults.length; i++) {
       const vmafScoreText = `VMAF score=${
-        vmafResults[i].log.frames.find((s) => s.frameNum == frameNumber).metrics
-          .vmaf
+        Math.round(
+          vmafResults[i].log.frames.find((s) => s.frameNum == frameNumber)
+            .metrics.vmaf * 100,
+        ) / 100
       }`;
       const lowerResolutionValue: number =
         frameHeight < frameWidth ? frameHeight : frameWidth;
